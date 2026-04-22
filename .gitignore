@@ -1,0 +1,31 @@
+# IDEs
+.idea/
+.vscode/
+.claude/
+
+# .NET build output
+bin/
+obj/
+
+# .NET user secrets and local settings
+appsettings.Local.json
+appsettings.*.Local.json
+*.user
+*.suo
+
+# Uploaded files (local storage)
+uploads/
+
+# Logs
+logs/
+*.log
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db

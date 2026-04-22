@@ -1,0 +1,297 @@
+DOCUMENT MANAGEMENT SERVICE — REQUIREMENTS BY LEVEL
+=====================================================
+Generated: April 21, 2026
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 0 — FLAT FILE STORAGE
+MVP: store and retrieve files
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Users need to save and retrieve files, nothing more. No product exists yet.
+
+Functional Requirements:
+  - Upload a file (any format) and receive a unique identifier back
+  - Download a file by its identifier
+  - Delete a file by its identifier
+  - List all files belonging to a user
+  - Store basic metadata: filename, file size, MIME type, upload timestamp
+
+Non-Functional Requirements:
+  - Max file size: 25 MB
+  - Availability: best-effort (single server)
+  - Latency: p95 upload < 3 s on a standard connection
+  - No authentication — trust provided user_id header
+
+Out of Scope:
+  - Versioning, access control, sharing, search, preview
+
+Key Technologies:
+  Local disk / S3, REST API, Postgres (metadata)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 1 — AUTH + OWNERSHIP MODEL
+Who owns what?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Anyone can read or delete anyone's files. We need identity and ownership.
+
+Functional Requirements:
+  - User registration and login (email + password, JWT-based sessions)
+  - All file operations require an authenticated session token
+  - Users can only read/write/delete their own files
+  - Admin role can read all files and suspend users
+  - Password reset via email link
+  - Return 403 Forbidden on unauthorized access attempts
+
+Non-Functional Requirements:
+  - JWT expiry: 1 h access token, 7 d refresh token
+  - Passwords hashed with bcrypt (cost factor >= 12)
+  - All endpoints served over HTTPS only
+  - Failed login attempts rate-limited: 5 per minute per IP
+  - Audit log: record every file access (who, what, when)
+
+Key Technologies:
+  JWT, OAuth 2.0, RBAC, HTTPS / TLS
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 2 — FOLDERS + VERSIONING
+Structure and history
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Users have hundreds of files with no organisation, and no way to recover
+  overwritten files.
+
+Functional Requirements:
+  - Create, rename, move, and delete folders (arbitrary nesting depth)
+  - Move files between folders
+  - On upload of a file with an existing name in the same folder, create a
+    new version rather than overwrite
+  - List all versions of a file with version number, size, uploader, and
+    timestamp
+  - Restore any prior version as the current version
+  - Permanently delete a specific version (hard delete)
+  - Soft-delete files and folders (Trash); restore within 30 days
+
+Non-Functional Requirements:
+  - Folder tree depth: <= 20 levels
+  - Version history retained for 90 days by default (configurable per plan)
+  - Deleting a folder deletes all contents atomically (transactional)
+  - Trash auto-purge runs nightly
+
+Key Technologies:
+  Adjacency list / LTREE, Soft delete, Version table
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 3 — SHARING + PERMISSIONS
+Collaboration primitives
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Users want to share specific files or folders with colleagues without giving
+  full account access.
+
+Functional Requirements:
+  - Share a file or folder with another registered user, with a role: Viewer,
+    Commenter, or Editor
+  - Generate a public shareable link with optional expiry and optional password
+  - Revoke any share or public link at any time
+  - Permission inheritance: a shared folder grants the same role on all children
+  - Child-level permission override: a subfolder can be shared with a more
+    restrictive role
+  - Email notification on share invitation
+  - Share audit trail: who shared what, with whom, when, and with what role
+
+Non-Functional Requirements:
+  - Permission check latency: p99 < 20 ms (cached in Redis)
+  - Public links served via CDN; authenticated links bypass CDN
+  - Max shares per file: 500 principals
+  - Shared link tokens: cryptographically random, 32 bytes
+
+Key Technologies:
+  ACL table, Redis permission cache, CDN, Signed URLs
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 4 — FULL-TEXT SEARCH + METADATA INDEXING
+Find anything, instantly
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Users can't find files by content. Scrolling through hundreds of folders
+  is untenable.
+
+Functional Requirements:
+  - Full-text search across file contents (PDF, DOCX, PPTX, plain text)
+  - Search across metadata: filename, tags, uploader, date range, file type
+  - Results ranked by relevance; show a content snippet with the matching
+    term highlighted
+  - Search scoped to: my files, shared with me, a specific folder subtree
+  - Search index updated within 60 seconds of a file upload or edit
+    (near-real-time)
+  - Tag files with custom labels; filter search by tag
+
+Non-Functional Requirements:
+  - Search query latency: p95 < 300 ms for up to 10 M documents
+  - Content extraction via async worker queue (does not block upload response)
+  - OCR for scanned PDFs and images (best-effort, tagged as "OCR extracted")
+  - Index storage isolated from primary DB
+
+Key Technologies:
+  Elasticsearch / OpenSearch, Tika / OCR, Async worker queue, Inverted index
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 5 — SCALABILITY + MULTI-TENANCY
+From startup to enterprise
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  A single-tenant architecture collapses under enterprise load. One noisy
+  tenant can starve everyone else.
+
+Functional Requirements:
+  - Organisations (tenants): each org has isolated storage quotas, user
+    management, and billing
+  - Storage quota enforcement: soft warn at 80%, hard block at 100%
+  - Per-tenant usage dashboard: storage consumed, bandwidth, API calls
+    this month
+  - Tenant data isolated at the storage prefix and DB schema level
+  - SSO via SAML 2.0 / OIDC for enterprise orgs
+  - Bulk operations: bulk move, bulk delete, bulk share (async, with progress
+    tracking)
+
+Non-Functional Requirements:
+  - Support 10,000 concurrent tenants
+  - API rate limit: 1,000 req/min per tenant (configurable by tier)
+  - Upload throughput: 10 Gbps aggregate across tenants
+  - Horizontal scaling: stateless API layer behind load balancer; DB read
+    replicas
+  - SLA: 99.9% uptime (~8.7 h downtime/year)
+
+Key Technologies:
+  Tenant isolation, SAML / OIDC, Read replicas, API rate limiting,
+  Quota enforcement
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 6 — COMPLIANCE + SECURITY HARDENING
+GDPR, HIPAA, SOC 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Enterprise and regulated-industry customers can't adopt the product without
+  audit trails, encryption, and data residency guarantees.
+
+Functional Requirements:
+  - Encryption at rest: AES-256 with per-tenant customer-managed keys (CMK)
+    via AWS KMS / Azure Key Vault
+  - Encryption in transit: TLS 1.2 minimum, TLS 1.3 preferred
+  - Data residency: org admin chooses storage region (EU, US, APAC); data
+    never leaves that region
+  - Immutable audit log: all admin and data access events written to an
+    append-only store
+  - GDPR right-to-erasure: purge all user data within 30 days of deletion
+    request
+  - Configurable data retention policies: auto-delete files after N days of
+    inactivity
+  - DLP scanning: detect and flag documents containing PII patterns (SSN,
+    credit card, passport)
+  - eDiscovery hold: legal hold prevents deletion of flagged files, even by
+    the owner
+
+Non-Functional Requirements:
+  - SOC 2 Type II audit artifacts generated automatically
+  - Audit log integrity: each entry includes a cryptographic chain hash
+  - Key rotation: CMK re-encryption completes within 24 h without service
+    interruption
+  - DLP scan latency: < 5 min post-upload for documents up to 50 MB
+
+Key Technologies:
+  CMK / KMS, Append-only audit log, DLP, Legal hold, Data residency
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL 7 — REAL-TIME COLLABORATION
+Co-edit, comment, annotate
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  Users need to work on the same document simultaneously — like Google Docs —
+  rather than passing files back and forth.
+
+Functional Requirements:
+  - Presence indicators: show which users currently have a file open
+  - Inline comments: anchor a comment to a specific byte range or page region;
+    thread replies
+  - Resolve / reopen comment threads
+  - Real-time co-editing for supported formats (text, markdown) using OT
+    or CRDT
+  - Conflict-free merge: two users editing the same paragraph simultaneously
+    must not lose either change
+  - Activity feed: per-document stream of edits, comments, and version saves
+  - @mention a collaborator in a comment triggers an email + in-app
+    notification
+
+Non-Functional Requirements:
+  - Sync latency: changes visible to all collaborators within 200 ms
+    (same region)
+  - Concurrent editors per document: <= 50
+  - WebSocket connection: graceful reconnect on drop; client buffers ops and
+    resyncs on reconnect
+  - Persistence: every op durable before ACK to client
+
+Key Technologies:
+  CRDT / OT, WebSockets, Operational transform, Presence service
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEVEL N — AI-NATIVE INTELLIGENCE LAYER
+The system understands your documents
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem:
+  The system stores and retrieves documents, but doesn't understand them.
+  Users want answers, not files.
+
+Functional Requirements:
+  - Semantic search: query in natural language ("contracts with ACME signed
+    after 2022") returns ranked results by meaning, not keyword match
+  - Document Q&A: ask a question against a single document or an entire
+    folder; receive a cited answer
+  - Auto-classification: on upload, AI tags documents by type (invoice,
+    contract, report) with confidence score
+  - Auto-summarisation: generate a 3–5 sentence summary for any document
+    on demand
+  - Duplicate detection: flag near-identical documents (semantic similarity
+    > 0.95) to avoid redundancy
+  - Smart suggestions: "documents related to this one", "you may have already
+    filed this"
+  - PII redaction on download: optionally strip detected PII before serving
+    to a Viewer-role recipient
+  - Workflow automation: trigger actions (notify, move, tag) based on
+    document content events
+
+Non-Functional Requirements:
+  - Embeddings generated asynchronously post-upload; semantic search available
+    within 5 min
+  - Q&A response latency: p95 < 4 s for documents up to 100 pages
+  - LLM calls must not include cross-tenant document content in the same
+    prompt context
+  - All AI-generated outputs watermarked in the audit log as "AI-generated"
+  - User can opt out of AI processing at the org level (data sovereignty)
+
+Key Technologies:
+  Vector DB (pgvector / Pinecone), RAG pipeline, LLM (Claude / GPT),
+  Embedding model, Async processing
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF DOCUMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
