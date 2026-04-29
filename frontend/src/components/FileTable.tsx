@@ -3,20 +3,10 @@ import { Download, Trash2, FileText, Loader2 } from 'lucide-react'
 import type { FileMetadataDto } from '../api/files'
 import { downloadFile, deleteFile } from '../api/files'
 import { useToast } from './Toast'
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString()
-}
+import { formatBytes, formatDate } from '../lib/utils'
 
 interface Props {
   files: FileMetadataDto[]
-  userId: string
   onDeleted: () => void
 }
 
@@ -30,7 +20,7 @@ const tdStyle: React.CSSProperties = {
   borderBottom: '1px solid #f3f4f6', color: '#374151',
 }
 
-export function FileTable({ files, userId, onDeleted }: Props) {
+export function FileTable({ files, onDeleted }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const { toast } = useToast()
@@ -38,7 +28,7 @@ export function FileTable({ files, userId, onDeleted }: Props) {
   const handleDownload = async (file: FileMetadataDto) => {
     setDownloadingId(file.id)
     try {
-      await downloadFile(userId, file.id, file.filename)
+      await downloadFile(file.id, file.filename)
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Download failed', 'error')
     } finally {
@@ -50,7 +40,7 @@ export function FileTable({ files, userId, onDeleted }: Props) {
     if (!confirm(`Delete "${file.filename}"?`)) return
     setDeletingId(file.id)
     try {
-      await deleteFile(userId, file.id)
+      await deleteFile(file.id)
       toast(`"${file.filename}" deleted`)
       onDeleted()
     } catch (err: unknown) {

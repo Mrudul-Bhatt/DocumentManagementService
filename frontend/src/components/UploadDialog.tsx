@@ -2,20 +2,14 @@ import { useRef, useState } from 'react'
 import { Upload, X } from 'lucide-react'
 import { uploadFile } from '../api/files'
 import { useToast } from './Toast'
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
+import { formatBytes } from '../lib/utils'
 
 interface Props {
-  userId: string
   onUploaded: () => void
   onClose: () => void
 }
 
-export function UploadDialog({ userId, onUploaded, onClose }: Props) {
+export function UploadDialog({ onUploaded, onClose }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -31,7 +25,7 @@ export function UploadDialog({ userId, onUploaded, onClose }: Props) {
     if (!file) return
     setLoading(true)
     try {
-      await uploadFile(userId, file)
+      await uploadFile(file)
       toast(`"${file.name}" uploaded successfully`)
       onUploaded()
       onClose()

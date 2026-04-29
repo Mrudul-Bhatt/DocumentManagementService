@@ -9,4 +9,10 @@ public sealed record UploadFileCommand(
     string Filename,
     string MimeType,
     long FileSize,
-    Stream Content) : IRequest<Result<FileMetadataDto>>;
+    Stream Content,
+    string? IpAddress) : IRequest<Result<FileMetadataDto>>, IAuditableRequest
+{
+    public string Action => "File.Upload";
+    public string ResourceType => "File";
+    public string? ResourceId => null;
+}

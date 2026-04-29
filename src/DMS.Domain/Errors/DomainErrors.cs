@@ -12,7 +12,16 @@ public static class DomainErrors
 
     public static class User
     {
-        public static readonly Error IdMissing = new("User.IdMissing", "The X-User-Id header is required.");
+        public static readonly Error NotFound = new("User.NotFound", "The requested user does not exist.");
+        public static readonly Error EmailAlreadyExists = new("User.EmailAlreadyExists", "An account with this email address already exists.");
+        public static readonly Error InvalidCredentials = new("User.InvalidCredentials", "The email or password is incorrect.");
+        public static readonly Error Suspended = new("User.Suspended", "This account has been suspended.");
+    }
+
+    public static class Token
+    {
+        public static readonly Error Invalid = new("Token.Invalid", "The token is invalid.");
+        public static readonly Error Expired = new("Token.Expired", "The token has expired.");
     }
 }
 

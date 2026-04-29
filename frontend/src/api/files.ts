@@ -1,3 +1,5 @@
+import { authFetch } from './client'
+
 export interface FileMetadataDto {
   id: string
   filename: string
@@ -8,31 +10,28 @@ export interface FileMetadataDto {
 
 const BASE = '/api/files'
 
-function headers(userId: string): HeadersInit {
-  return { 'X-User-Id': userId }
+async function expectOk(res: Response): Promise<Response> {
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error(err?.detail ?? `Request failed (${res.status})`)
+  }
+  return res
 }
 
-export async function listFiles(userId: string): Promise<FileMetadataDto[]> {
-  const res = await fetch(BASE, { headers: headers(userId) })
-  if (!res.ok) throw new Error(await res.text())
+export async function listFiles(): Promise<FileMetadataDto[]> {
+  const res = await expectOk(await authFetch(BASE))
   return res.json()
 }
 
-export async function uploadFile(userId: string, file: File): Promise<FileMetadataDto> {
+export async function uploadFile(file: File): Promise<FileMetadataDto> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(BASE, {
-    method: 'POST',
-    headers: headers(userId),
-    body: form,
-  })
-  if (!res.ok) throw new Error(await res.text())
+  const res = await expectOk(await authFetch(BASE, { method: 'POST', body: form }))
   return res.json()
 }
 
-export async function downloadFile(userId: string, id: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { headers: headers(userId) })
-  if (!res.ok) throw new Error(await res.text())
+export async function downloadFile(id: string, filename: string): Promise<void> {
+  const res = await expectOk(await authFetch(`${BASE}/${id}`))
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -42,10 +41,6 @@ export async function downloadFile(userId: string, id: string, filename: string)
   URL.revokeObjectURL(url)
 }
 
-export async function deleteFile(userId: string, id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, {
-    method: 'DELETE',
-    headers: headers(userId),
-  })
-  if (!res.ok) throw new Error(await res.text())
+export async function deleteFile(id: string): Promise<void> {
+  await expectOk(await authFetch(`${BASE}/${id}`, { method: 'DELETE' }))
 }
