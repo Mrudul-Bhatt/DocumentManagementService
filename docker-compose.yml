@@ -1,21 +1,110 @@
+# =============================================================================
+# docker-compose.yml — Local development infrastructure for DMS
+#
+# What this file provides:
+#   A single SQL Server instance that the .NET API connects to for local
+#   development. Running `docker-compose up -d` is the only step required
+#   to stand up the database dependency — no local SQL Server installation needed.
+#
+# What this file does NOT include:
+#   The .NET API itself. The API runs via `dotnet run` (or the IDE) directly
+#   on the host machine so that the normal edit → build → run loop stays fast.
+#   Containerising the API would require a rebuild on every code change.
+#
+# Usage:
+#   Start:   docker-compose up -d
+#   Stop:    docker-compose down
+#   Destroy: docker-compose down -v   (also deletes the database volume)
+# =============================================================================
+
 services:
+
+  # ---------------------------------------------------------------------------
+  # SQL Server 2022 — primary database for DMS
+  #
+  # Why SQL Server in Docker instead of LocalDB or SQLite?
+  #   LocalDB is Windows-only and not available in CI or Linux containers.
+  #   SQLite is file-based and lacks features used in production (e.g., row-level
+  #   locking, datetimeoffset type, identity columns behaving identically).
+  #   Running the same SQL Server version in Docker locally and in production
+  #   eliminates "works on my machine" schema and type-mapping bugs.
+  # ---------------------------------------------------------------------------
   sqlserver:
+    # Official Microsoft SQL Server 2022 image from the Microsoft Container Registry.
+    # "2022-latest" always pulls the latest cumulative update for SQL Server 2022,
+    # keeping the dev environment on a recent, patched build without pinning a
+    # specific CU version manually.
     image: mcr.microsoft.com/mssql/server:2022-latest
+
+    # Explicit container name for predictable referencing in logs and CLI commands
+    # (e.g., `docker logs dms-sqlserver` instead of a generated hash name).
     container_name: dms-sqlserver
+
     environment:
+      # Required by Microsoft's image — accepts the SQL Server End-User License
+      # Agreement. The container will not start without this set to "Y".
       ACCEPT_EULA: "Y"
+
+      # SA (System Administrator) account password.
+      # Must meet SQL Server's complexity requirements: 8+ characters, mixed case,
+      # number, and special character. This value must match the password in
+      # appsettings.json ConnectionStrings:DefaultConnection.
+      # SECURITY: This is a local development credential only. Never use this
+      # password or the SA account in a production environment.
       MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+
+      # "Developer" edition is full-featured SQL Server licensed for development
+      # and testing only — not for production workloads. Free to use locally.
+      # Other valid values: "Express" (free, limited), "Standard", "Enterprise".
       MSSQL_PID: "Developer"
+
     ports:
+      # Maps host port 1433 → container port 1433 (SQL Server default).
+      # The connection string in appsettings.json uses "Server=localhost,1433"
+      # to reach this container from the host machine.
+      # If port 1433 is already in use locally (e.g., a native SQL Server install),
+      # change the host port (left side) to e.g. "1434:1433" and update the
+      # connection string accordingly.
       - "1433:1433"
+
     volumes:
+      # Mounts a named Docker volume at SQL Server's default data directory.
+      # This persists the database files across container restarts — stopping and
+      # restarting the container does not wipe the database.
+      # Running `docker-compose down -v` removes the volume and resets to a clean state.
       - sqlserver-data:/var/opt/mssql
+
     healthcheck:
+      # Probes SQL Server by running a trivial query via sqlcmd.
+      # -No disables the certificate trust warning introduced in mssql-tools18.
+      # Docker marks the container "healthy" only after this command exits 0,
+      # which confirms the SQL Server engine is ready to accept connections —
+      # not just that the container process has started.
       test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourStrong!Passw0rd" -Q "SELECT 1" -No
+
+      # How often Docker re-runs the health check after the container is running.
       interval: 10s
+
+      # How long Docker waits for the health check command to complete before
+      # treating it as a failure.
       timeout: 5s
+
+      # Number of consecutive failures before the container is marked "unhealthy".
       retries: 10
+
+      # Grace period after container start before health checks begin.
+      # SQL Server takes ~20-30 seconds to initialise on first run (unpacking
+      # system databases). Without this, early health checks would all fail
+      # and the container could be marked unhealthy before it has had a chance to start.
       start_period: 30s
 
+# =============================================================================
+# Named volumes
+#
+# Declaring volumes at the top level registers them with Docker so their
+# lifecycle is managed independently of any individual container. The volume
+# persists until explicitly removed (`docker volume rm` or `docker-compose down -v`),
+# surviving container stops, restarts, and even `docker-compose down` without -v.
+# =============================================================================
 volumes:
   sqlserver-data:
