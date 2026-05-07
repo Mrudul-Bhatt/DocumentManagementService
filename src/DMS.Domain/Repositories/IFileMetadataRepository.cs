@@ -47,12 +47,21 @@ public interface IFileMetadataRepository
     Task AddAsync(FileMetadata file, CancellationToken ct = default);
 
     /// <summary>
-    /// Removes a FileMetadata entity from the database.
-    ///
-    /// Why accept the entity rather than just the Guid?
-    ///   EF Core's Remove() operates on an entity already tracked by the change tracker.
-    ///   The delete handler fetches the entity first (to verify ownership via BelongsTo()),
-    ///   so it already has the tracked instance. Passing the entity avoids a redundant lookup.
+    /// Removes a FileMetadata entity from the database (hard delete).
+    /// Only called when permanently purging a trashed file — not for the normal delete flow,
+    /// which uses SoftDelete() + UpdateAsync().
     /// </summary>
     Task DeleteAsync(FileMetadata file, CancellationToken ct = default);
+
+    /// <summary>Persists mutations to an existing FileMetadata entity (e.g. after SoftDelete, Restore, MoveTo, UpdateStoragePath).</summary>
+    Task UpdateAsync(FileMetadata file, CancellationToken ct = default);
+
+    /// <summary>Returns active (non-deleted) files in the specified folder. Pass null folderId for root-level files.</summary>
+    Task<IReadOnlyList<FileMetadata>> GetByFolderIdAsync(string userId, Guid? folderId, CancellationToken ct = default);
+
+    /// <summary>Returns all soft-deleted files for the user (ignores the global DeletedAt filter).</summary>
+    Task<IReadOnlyList<FileMetadata>> GetDeletedByUserIdAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>Loads a single soft-deleted file by ID (ignores the global filter). Returns null if not found or not deleted.</summary>
+    Task<FileMetadata?> GetDeletedByIdAsync(Guid id, CancellationToken ct = default);
 }

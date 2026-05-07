@@ -52,16 +52,22 @@ public static class ResultExtensions
     /// </summary>
     private static readonly Dictionary<string, int> ErrorStatusCodes = new()
     {
-        [DomainErrors.File.NotFound.Code]           = StatusCodes.Status404NotFound,
-        [DomainErrors.File.Forbidden.Code]          = StatusCodes.Status403Forbidden,
-        [DomainErrors.File.TooLarge.Code]           = StatusCodes.Status413RequestEntityTooLarge,
-        [DomainErrors.File.Empty.Code]              = StatusCodes.Status400BadRequest,
-        [DomainErrors.User.NotFound.Code]           = StatusCodes.Status404NotFound,
-        [DomainErrors.User.EmailAlreadyExists.Code] = StatusCodes.Status409Conflict,
-        [DomainErrors.User.InvalidCredentials.Code] = StatusCodes.Status401Unauthorized,
-        [DomainErrors.User.Suspended.Code]          = StatusCodes.Status403Forbidden,
-        [DomainErrors.Token.Invalid.Code]           = StatusCodes.Status401Unauthorized,
-        [DomainErrors.Token.Expired.Code]           = StatusCodes.Status401Unauthorized,
+        [DomainErrors.File.NotFound.Code]                  = StatusCodes.Status404NotFound,
+        [DomainErrors.File.Forbidden.Code]                 = StatusCodes.Status403Forbidden,
+        [DomainErrors.File.TooLarge.Code]                  = StatusCodes.Status413RequestEntityTooLarge,
+        [DomainErrors.File.Empty.Code]                     = StatusCodes.Status400BadRequest,
+        [DomainErrors.User.NotFound.Code]                  = StatusCodes.Status404NotFound,
+        [DomainErrors.User.EmailAlreadyExists.Code]        = StatusCodes.Status409Conflict,
+        [DomainErrors.User.InvalidCredentials.Code]        = StatusCodes.Status401Unauthorized,
+        [DomainErrors.User.Suspended.Code]                 = StatusCodes.Status403Forbidden,
+        [DomainErrors.Token.Invalid.Code]                  = StatusCodes.Status401Unauthorized,
+        [DomainErrors.Token.Expired.Code]                  = StatusCodes.Status401Unauthorized,
+        [DomainErrors.Folder.NotFound.Code]                = StatusCodes.Status404NotFound,
+        [DomainErrors.Folder.Forbidden.Code]               = StatusCodes.Status403Forbidden,
+        [DomainErrors.Folder.MaxDepthExceeded.Code]        = StatusCodes.Status422UnprocessableEntity,
+        [DomainErrors.Folder.NameConflict.Code]            = StatusCodes.Status409Conflict,
+        [DomainErrors.FileVersion.NotFound.Code]           = StatusCodes.Status404NotFound,
+        [DomainErrors.FileVersion.CannotDeleteCurrent.Code] = StatusCodes.Status409Conflict,
     };
 
     /// <summary>

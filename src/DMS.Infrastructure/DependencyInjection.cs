@@ -3,8 +3,10 @@ using DMS.Application.Settings;
 using DMS.Domain.Repositories;
 using DMS.Domain.Services;
 using DMS.Infrastructure.Auth;
+using DMS.Infrastructure.BackgroundServices;
 using DMS.Infrastructure.Persistence;
 using DMS.Infrastructure.Persistence.Repositories;
+using DMS.Infrastructure.Services;
 using DMS.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -53,6 +55,8 @@ public static class DependencyInjection
         // on the second request (the first request disposes the DbContext; the Singleton still
         // holds the dead reference).
         services.AddScoped<IFileMetadataRepository, FileMetadataRepository>();
+        services.AddScoped<IFolderRepository, FolderRepository>();
+        services.AddScoped<IFileVersionRepository, FileVersionRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
@@ -71,11 +75,17 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
-        // EmailService injects ILogger<EmailService>. ILogger is thread-safe but is typically
-        // registered as Singleton; Scoped is used here so the lifetime is compatible with any
-        // future per-request dependencies the real email provider might need (e.g., an
-        // IHttpClientFactory-based HTTP client, which should be Scoped or Transient).
         services.AddScoped<IEmailService, EmailService>();
+
+        // ── Application services — Scoped ────────────────────────────────────────────────
+        // TrashPurgeService injects AppDbContext (Scoped), so it must also be Scoped.
+        // The background service creates a new scope per invocation via IServiceScopeFactory.
+        services.AddScoped<ITrashPurgeService, TrashPurgeService>();
+
+        // ── Background services ───────────────────────────────────────────────────────────
+        // AddHostedService registers as Singleton (host lifecycle). The service uses
+        // IServiceScopeFactory to resolve Scoped services per invocation.
+        services.AddHostedService<TrashPurgeBackgroundService>();
 
         return services;
     }

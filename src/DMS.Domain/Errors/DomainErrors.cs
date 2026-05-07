@@ -74,6 +74,22 @@ public static class DomainErrors
         public static readonly Error Suspended = new("User.Suspended", "This account has been suspended.");
     }
 
+    /// <summary>Errors related to folder operations.</summary>
+    public static class Folder
+    {
+        public static readonly Error NotFound        = new("Folder.NotFound",        "The requested folder does not exist.");
+        public static readonly Error Forbidden       = new("Folder.Forbidden",       "You do not have permission to access this folder.");
+        public static readonly Error MaxDepthExceeded = new("Folder.MaxDepthExceeded", "Folders cannot be nested more than 20 levels deep.");
+        public static readonly Error NameConflict    = new("Folder.NameConflict",    "A folder with this name already exists in the same location.");
+    }
+
+    /// <summary>Errors related to file version operations.</summary>
+    public static class FileVersion
+    {
+        public static readonly Error NotFound              = new("FileVersion.NotFound",              "The requested file version does not exist.");
+        public static readonly Error CannotDeleteCurrent   = new("FileVersion.CannotDeleteCurrent",   "The current version of a file cannot be deleted. Delete the file instead.");
+    }
+
     /// <summary>Errors related to JWT access tokens and opaque refresh tokens.</summary>
     public static class Token
     {

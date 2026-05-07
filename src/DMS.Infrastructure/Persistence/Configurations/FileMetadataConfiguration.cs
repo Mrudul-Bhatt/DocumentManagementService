@@ -59,11 +59,22 @@ internal sealed class FileMetadataConfiguration : IEntityTypeConfiguration<FileM
         builder.Property(f => f.UploadedAt)
             .IsRequired();
 
-        // Non-unique index on UserId: GetByUserIdAsync runs a WHERE UserId = @id query
-        // on every List Files request. Without this index, listing files requires a full
-        // table scan of the FileMetadata table — O(n) where n is the total files across
-        // all users. The index makes it O(log n + k) where k is the user's file count.
+        // Optional FK to the Folders table. Null for root-level files.
+        builder.Property(f => f.FolderId)
+            .IsRequired(false);
+
+        // Soft-delete timestamp. Null when the file is active.
+        builder.Property(f => f.DeletedAt)
+            .IsRequired(false);
+
+        // Global query filter: active queries never return soft-deleted files.
+        // Trash queries use IgnoreQueryFilters() to bypass this filter.
+        builder.HasQueryFilter(f => f.DeletedAt == null);
+
         builder.HasIndex(f => f.UserId)
             .HasDatabaseName("IX_FileMetadata_UserId");
+
+        builder.HasIndex(f => new { f.UserId, f.FolderId })
+            .HasDatabaseName("IX_FileMetadata_UserId_FolderId");
     }
 }

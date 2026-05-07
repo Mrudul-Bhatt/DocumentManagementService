@@ -64,4 +64,29 @@ internal sealed class FileMetadataRepository(AppDbContext dbContext) : IFileMeta
         dbContext.FileMetadata.Remove(file);
         await dbContext.SaveChangesAsync(ct);
     }
+
+    public async Task UpdateAsync(FileMetadata file, CancellationToken ct = default)
+    {
+        dbContext.FileMetadata.Update(file);
+        await dbContext.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<FileMetadata>> GetByFolderIdAsync(string userId, Guid? folderId, CancellationToken ct = default) =>
+        await dbContext.FileMetadata
+            .Where(f => f.UserId == userId && f.FolderId == folderId)
+            .OrderByDescending(f => f.UploadedAt)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<FileMetadata>> GetDeletedByUserIdAsync(string userId, CancellationToken ct = default) =>
+        await dbContext.FileMetadata
+            .IgnoreQueryFilters()
+            .Where(f => f.UserId == userId && f.DeletedAt != null)
+            .OrderByDescending(f => f.DeletedAt)
+            .ToListAsync(ct);
+
+    public async Task<FileMetadata?> GetDeletedByIdAsync(Guid id, CancellationToken ct = default) =>
+        await dbContext.FileMetadata
+            .IgnoreQueryFilters()
+            .Where(f => f.Id == id && f.DeletedAt != null)
+            .FirstOrDefaultAsync(ct);
 }

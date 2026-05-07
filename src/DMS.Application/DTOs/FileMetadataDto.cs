@@ -5,4 +5,5 @@ public sealed record FileMetadataDto(
     string Filename,
     long FileSize,
     string MimeType,
-    DateTimeOffset UploadedAt);
+    DateTimeOffset UploadedAt,
+    Guid? FolderId);

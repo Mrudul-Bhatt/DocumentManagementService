@@ -1,14 +1,12 @@
 using DMS.Application.Common;
 using DMS.Domain.Errors;
 using DMS.Domain.Repositories;
-using DMS.Domain.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace DMS.Application.Files.Commands.DeleteFile;
 
 internal sealed class DeleteFileCommandHandler(
-    IFileStorageService storageService,
     IFileMetadataRepository repository,
     ILogger<DeleteFileCommandHandler> logger)
     : IRequestHandler<DeleteFileCommand, Result>
@@ -23,10 +21,10 @@ internal sealed class DeleteFileCommandHandler(
         if (!metadata.BelongsTo(command.UserId))
             return Result.Failure(DomainErrors.File.Forbidden);
 
-        await storageService.DeleteAsync(metadata.StoragePath, ct);
-        await repository.DeleteAsync(metadata, ct);
+        metadata.SoftDelete();
+        await repository.UpdateAsync(metadata, ct);
 
-        logger.LogInformation("File {FileId} deleted by user {UserId}", command.FileId, command.UserId);
+        logger.LogInformation("File {FileId} moved to trash by user {UserId}", command.FileId, command.UserId);
 
         return Result.Success();
     }

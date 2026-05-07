@@ -13,7 +13,7 @@ internal sealed class ListFilesQueryHandler(IFileMetadataRepository repository)
         var files = await repository.GetByUserIdAsync(query.UserId, ct);
 
         var dtos = files
-            .Select(f => new FileMetadataDto(f.Id, f.Filename, f.FileSize, f.MimeType, f.UploadedAt))
+            .Select(f => new FileMetadataDto(f.Id, f.Filename, f.FileSize, f.MimeType, f.UploadedAt, f.FolderId))
             .ToList()
             .AsReadOnly();
 

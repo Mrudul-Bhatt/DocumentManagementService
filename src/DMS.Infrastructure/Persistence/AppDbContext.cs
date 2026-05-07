@@ -56,6 +56,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     /// </summary>
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    /// <summary>User-created folder tree (adjacency list). Global query filter excludes soft-deleted rows.</summary>
+    public DbSet<Folder> Folders => Set<Folder>();
+
+    /// <summary>Per-file version history. One row per upload of the same filename in the same folder.</summary>
+    public DbSet<FileVersion> FileVersions => Set<FileVersion>();
+
     /// <summary>
     /// Applies all IEntityTypeConfiguration<T> implementations discovered via reflection.
     ///

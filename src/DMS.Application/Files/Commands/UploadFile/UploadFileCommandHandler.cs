@@ -11,7 +11,9 @@ namespace DMS.Application.Files.Commands.UploadFile;
 
 internal sealed class UploadFileCommandHandler(
     IFileStorageService storageService,
-    IFileMetadataRepository repository,
+    IFileMetadataRepository fileRepository,
+    IFolderRepository folderRepository,
+    IFileVersionRepository versionRepository,
     ILogger<UploadFileCommandHandler> logger)
     : IRequestHandler<UploadFileCommand, Result<FileMetadataDto>>
 {
@@ -25,19 +27,74 @@ internal sealed class UploadFileCommandHandler(
         if (command.FileSize > MaxFileSizeBytes)
             return Result.Failure<FileMetadataDto>(DomainErrors.File.TooLarge);
 
+        // Validate folder ownership when a folder is specified
+        if (command.FolderId.HasValue)
+        {
+            var folder = await folderRepository.GetByIdAsync(command.FolderId.Value, ct);
+            if (folder is null || !folder.BelongsTo(Guid.Parse(command.UserId)))
+                return Result.Failure<FileMetadataDto>(DomainErrors.Folder.NotFound);
+        }
+
+        // Check whether a file with the same name already exists in the target folder
+        var existingFiles = await fileRepository.GetByFolderIdAsync(command.UserId, command.FolderId, ct);
+        var existing = existingFiles.FirstOrDefault(f =>
+            string.Equals(f.Filename, command.Filename, StringComparison.OrdinalIgnoreCase));
+
         var fileId = Guid.NewGuid().ToString();
         var storagePath = await storageService.SaveAsync(command.Content, command.UserId, fileId, ct);
 
+        if (existing is not null)
+        {
+            // Same-named file in the same folder → create a new version rather than a duplicate
+            var nextVersion = await versionRepository.GetLatestVersionNumberAsync(existing.Id, ct) + 1;
+
+            var version = FileVersion.Create(
+                existing.Id,
+                nextVersion,
+                storagePath,
+                command.FileSize,
+                command.UserId);
+
+            await versionRepository.AddAsync(version, ct);
+
+            existing.UpdateStoragePath(storagePath);
+            await fileRepository.UpdateAsync(existing, ct);
+
+            logger.LogInformation(
+                "File {FileId} updated to version {Version} by user {UserId} ({Filename}, {Size} bytes)",
+                existing.Id, nextVersion, command.UserId, command.Filename, command.FileSize);
+
+            return Result.Success(new FileMetadataDto(
+                existing.Id,
+                existing.Filename,
+                command.FileSize,
+                existing.MimeType,
+                existing.UploadedAt,
+                existing.FolderId));
+        }
+
+        // New file — create metadata and version 1
         var metadata = FileMetadata.Create(
             command.UserId,
             command.Filename,
             command.FileSize,
             command.MimeType,
-            storagePath);
+            storagePath,
+            command.FolderId);
 
-        await repository.AddAsync(metadata, ct);
+        await fileRepository.AddAsync(metadata, ct);
 
-        logger.LogInformation("File {FileId} uploaded by user {UserId} ({Filename}, {Size} bytes)",
+        var firstVersion = FileVersion.Create(
+            metadata.Id,
+            versionNumber: 1,
+            storagePath,
+            command.FileSize,
+            command.UserId);
+
+        await versionRepository.AddAsync(firstVersion, ct);
+
+        logger.LogInformation(
+            "File {FileId} uploaded by user {UserId} ({Filename}, {Size} bytes)",
             metadata.Id, command.UserId, command.Filename, command.FileSize);
 
         return Result.Success(new FileMetadataDto(
@@ -45,6 +102,7 @@ internal sealed class UploadFileCommandHandler(
             metadata.Filename,
             metadata.FileSize,
             metadata.MimeType,
-            metadata.UploadedAt));
+            metadata.UploadedAt,
+            metadata.FolderId));
     }
 }

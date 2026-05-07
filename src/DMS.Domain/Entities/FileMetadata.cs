@@ -50,6 +50,14 @@ public sealed class FileMetadata
     /// <summary>UTC timestamp of when the file was uploaded and the entity was created.</summary>
     public DateTimeOffset UploadedAt { get; private set; }
 
+    /// <summary>Optional folder this file lives in. Null means the file is at the root level (no folder).</summary>
+    public Guid? FolderId { get; private set; }
+
+    /// <summary>Null when the file is active. Set by SoftDelete() when the file is moved to Trash.</summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
+    public bool IsDeleted => DeletedAt.HasValue;
+
     /// <summary>
     /// Private parameterless constructor required by EF Core for materialisation.
     /// Application code must use Create() instead.
@@ -73,17 +81,19 @@ public sealed class FileMetadata
         string filename,
         long fileSize,
         string mimeType,
-        string storagePath)
+        string storagePath,
+        Guid? folderId = null)
     {
         return new FileMetadata
         {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Filename = filename,
-            FileSize = fileSize,
-            MimeType = mimeType,
+            Id          = Guid.NewGuid(),
+            UserId      = userId,
+            Filename    = filename,
+            FileSize    = fileSize,
+            MimeType    = mimeType,
             StoragePath = storagePath,
-            UploadedAt = DateTimeOffset.UtcNow
+            FolderId    = folderId,
+            UploadedAt  = DateTimeOffset.UtcNow
         };
     }
 
@@ -98,4 +108,16 @@ public sealed class FileMetadata
     ///   does the same before streaming bytes — both get the same semantic check.
     /// </summary>
     public bool BelongsTo(string userId) => UserId == userId;
+
+    /// <summary>Updates StoragePath to point to a newly created file version's physical bytes.</summary>
+    public void UpdateStoragePath(string storagePath) => StoragePath = storagePath;
+
+    /// <summary>Moves the file into a different folder (or to root when folderId is null).</summary>
+    public void MoveTo(Guid? folderId) => FolderId = folderId;
+
+    /// <summary>Soft-deletes the file — moves it to Trash. Physical bytes and DB row are retained until purged.</summary>
+    public void SoftDelete() => DeletedAt = DateTimeOffset.UtcNow;
+
+    /// <summary>Restores a soft-deleted file from Trash back to its original folder.</summary>
+    public void Restore() => DeletedAt = null;
 }

@@ -69,6 +69,9 @@ namespace DMS.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
@@ -76,6 +79,9 @@ namespace DMS.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("MimeType")
                         .IsRequired()
@@ -100,7 +106,82 @@ namespace DMS.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_FileMetadata_UserId");
 
+                    b.HasIndex("UserId", "FolderId")
+                        .HasDatabaseName("IX_FileMetadata_UserId_FolderId");
+
                     b.ToTable("FileMetadata", (string)null);
+                });
+
+            modelBuilder.Entity("DMS.Domain.Entities.FileVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("UploadedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId")
+                        .HasDatabaseName("IX_FileVersions_FileId");
+
+                    b.HasIndex("FileId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FileVersions_FileId_VersionNumber");
+
+                    b.ToTable("FileVersions", (string)null);
+                });
+
+            modelBuilder.Entity("DMS.Domain.Entities.Folder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentFolderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("IX_Folders_OwnerId");
+
+                    b.HasIndex("ParentFolderId")
+                        .HasDatabaseName("IX_Folders_ParentFolderId");
+
+                    b.ToTable("Folders", (string)null);
                 });
 
             modelBuilder.Entity("DMS.Domain.Entities.RefreshToken", b =>
@@ -170,6 +251,14 @@ namespace DMS.Infrastructure.Migrations
                         .HasDatabaseName("IX_Users_Email");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("DMS.Domain.Entities.Folder", b =>
+                {
+                    b.HasOne("DMS.Domain.Entities.Folder", null)
+                        .WithMany()
+                        .HasForeignKey("ParentFolderId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 #pragma warning restore 612, 618
         }
