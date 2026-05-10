@@ -5,11 +5,12 @@ import { useToast } from './Toast'
 import { formatBytes } from '../lib/utils'
 
 interface Props {
+  folderId: string | null
   onUploaded: () => void
   onClose: () => void
 }
 
-export function UploadDialog({ onUploaded, onClose }: Props) {
+export function UploadDialog({ folderId, onUploaded, onClose }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -25,7 +26,7 @@ export function UploadDialog({ onUploaded, onClose }: Props) {
     if (!file) return
     setLoading(true)
     try {
-      await uploadFile(file)
+      await uploadFile(file, folderId)
       toast(`"${file.name}" uploaded successfully`)
       onUploaded()
       onClose()
@@ -50,7 +51,7 @@ export function UploadDialog({ onUploaded, onClose }: Props) {
   }
 
   return (
-    <div style={overlay}>
+    <div style={overlay} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={dialog}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: '#111827' }}>Upload File</h2>
@@ -71,6 +72,12 @@ export function UploadDialog({ onUploaded, onClose }: Props) {
           )}
           <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
         </div>
+
+        {folderId && (
+          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#6b7280', textAlign: 'center' }}>
+            Uploading into current folder
+          </p>
+        )}
 
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
           <button
