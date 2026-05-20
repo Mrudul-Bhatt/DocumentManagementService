@@ -68,6 +68,13 @@ public static class ResultExtensions
         [DomainErrors.Folder.NameConflict.Code]            = StatusCodes.Status409Conflict,
         [DomainErrors.FileVersion.NotFound.Code]           = StatusCodes.Status404NotFound,
         [DomainErrors.FileVersion.CannotDeleteCurrent.Code] = StatusCodes.Status409Conflict,
+        [DomainErrors.Share.NotFound.Code]                 = StatusCodes.Status404NotFound,
+        [DomainErrors.Share.AlreadyExists.Code]            = StatusCodes.Status409Conflict,
+        [DomainErrors.Share.MaxSharesExceeded.Code]        = StatusCodes.Status422UnprocessableEntity,
+        [DomainErrors.Share.CannotShareWithSelf.Code]      = StatusCodes.Status400BadRequest,
+        [DomainErrors.PublicLink.NotFound.Code]            = StatusCodes.Status404NotFound,
+        [DomainErrors.PublicLink.Expired.Code]             = StatusCodes.Status410Gone,
+        [DomainErrors.PublicLink.InvalidPassword.Code]     = StatusCodes.Status401Unauthorized,
     };
 
     /// <summary>

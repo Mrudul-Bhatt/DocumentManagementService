@@ -90,6 +90,23 @@ public static class DomainErrors
         public static readonly Error CannotDeleteCurrent   = new("FileVersion.CannotDeleteCurrent",   "The current version of a file cannot be deleted. Delete the file instead.");
     }
 
+    /// <summary>Errors related to direct user-to-user share grants.</summary>
+    public static class Share
+    {
+        public static readonly Error NotFound            = new("Share.NotFound",            "The requested share does not exist.");
+        public static readonly Error AlreadyExists       = new("Share.AlreadyExists",       "This resource is already shared with that user.");
+        public static readonly Error MaxSharesExceeded   = new("Share.MaxSharesExceeded",   "A resource cannot have more than 500 shares.");
+        public static readonly Error CannotShareWithSelf = new("Share.CannotShareWithSelf", "You cannot share a resource with yourself.");
+    }
+
+    /// <summary>Errors related to token-based public links.</summary>
+    public static class PublicLink
+    {
+        public static readonly Error NotFound        = new("PublicLink.NotFound",        "The public link does not exist or has been revoked.");
+        public static readonly Error Expired         = new("PublicLink.Expired",         "This public link has expired.");
+        public static readonly Error InvalidPassword = new("PublicLink.InvalidPassword", "The password provided for this link is incorrect.");
+    }
+
     /// <summary>Errors related to JWT access tokens and opaque refresh tokens.</summary>
     public static class Token
     {

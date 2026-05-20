@@ -1,6 +1,8 @@
 using DMS.Application.Common;
+using DMS.Domain.Enums;
 using DMS.Domain.Errors;
 using DMS.Domain.Repositories;
+using DMS.Domain.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -8,6 +10,7 @@ namespace DMS.Application.Files.Commands.DeleteFile;
 
 internal sealed class DeleteFileCommandHandler(
     IFileMetadataRepository repository,
+    IPermissionService permissionService,
     ILogger<DeleteFileCommandHandler> logger)
     : IRequestHandler<DeleteFileCommand, Result>
 {
@@ -18,7 +21,8 @@ internal sealed class DeleteFileCommandHandler(
         if (metadata is null)
             return Result.Failure(DomainErrors.File.NotFound);
 
-        if (!metadata.BelongsTo(command.UserId))
+        if (!metadata.BelongsTo(command.UserId) &&
+            !await permissionService.CanWriteAsync(Guid.Parse(command.UserId), metadata.Id, ShareResourceType.File, ct))
             return Result.Failure(DomainErrors.File.Forbidden);
 
         metadata.SoftDelete();

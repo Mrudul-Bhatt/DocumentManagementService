@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, RefreshCw, Loader2, LogOut, FolderPlus, Trash2, Home, ChevronRight } from 'lucide-react'
+import { Upload, RefreshCw, Loader2, LogOut, FolderPlus, Trash2, Home, ChevronRight, Users } from 'lucide-react'
 import { getFolderContents, type FolderDto, type FolderContentsDto } from './api/folders'
 import { FileTable } from './components/FileTable'
 import { UploadDialog } from './components/UploadDialog'
 import { CreateFolderDialog } from './components/CreateFolderDialog'
 import { TrashView } from './components/TrashView'
+import { SharedWithMeView } from './components/SharedWithMeView'
 import { ToastProvider, useToast } from './components/Toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AuthPage } from './pages/AuthPage'
 
-type View = 'files' | 'trash'
+type View = 'files' | 'trash' | 'shared'
 
 interface BreadcrumbEntry {
   id: string
@@ -71,7 +72,7 @@ function MainApp() {
         <div style={{ maxWidth: '64rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>Document Management</h1>
-            <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>Level 2 — Folders + Versioning + Trash</p>
+            <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>Level 3 — Sharing + Permissions + Public Links</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <button
@@ -100,6 +101,10 @@ function MainApp() {
             <Home size={14} />
             Files
           </button>
+          <button style={tabStyle(view === 'shared')} onClick={() => setView('shared')}>
+            <Users size={14} />
+            Shared
+          </button>
           <button style={tabStyle(view === 'trash')} onClick={() => setView('trash')}>
             <Trash2 size={14} />
             Trash
@@ -108,6 +113,8 @@ function MainApp() {
 
         {view === 'trash' ? (
           <TrashView />
+        ) : view === 'shared' ? (
+          <SharedWithMeView />
         ) : (
           <div style={{ background: 'white', borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             {/* Toolbar */}

@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Download, Trash2, FileText, Loader2, ChevronRight, Folder, Clock, FolderX } from 'lucide-react'
+import { Download, Trash2, FileText, Loader2, ChevronRight, Folder, Clock, FolderX, Share2 } from 'lucide-react'
 import type { FileMetadataDto } from '../api/files'
 import type { FolderDto } from '../api/folders'
 import { downloadFile, deleteFile } from '../api/files'
 import { deleteFolder } from '../api/folders'
 import { useToast } from './Toast'
 import { VersionsModal } from './VersionsModal'
+import { ShareModal } from './ShareModal'
 import { formatBytes, formatDate } from '../lib/utils'
 
 interface Props {
@@ -13,6 +14,12 @@ interface Props {
   files: FileMetadataDto[]
   onFolderOpen: (folder: FolderDto) => void
   onRefresh: () => void
+}
+
+interface ShareTarget {
+  id: string
+  name: string
+  type: 'File' | 'Folder'
 }
 
 const thStyle: React.CSSProperties = {
@@ -29,6 +36,7 @@ export function FileTable({ folders, files, onFolderOpen, onRefresh }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [versionsFile, setVersionsFile] = useState<FileMetadataDto | null>(null)
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
   const { toast } = useToast()
 
   const handleDownload = async (file: FileMetadataDto) => {
@@ -116,14 +124,23 @@ export function FileTable({ folders, files, onFolderOpen, onRefresh }: Props) {
                 </td>
                 <td style={{ ...tdStyle, color: '#6b7280' }}>{formatDate(folder.createdAt)}</td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
-                  <button
-                    onClick={() => handleDeleteFolder(folder)}
-                    disabled={deletingId === folder.id}
-                    title="Move to trash"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.25rem', color: '#6b7280', opacity: deletingId === folder.id ? 0.5 : 1 }}
-                  >
-                    {deletingId === folder.id ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderX size={16} />}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.25rem' }}>
+                    <button
+                      onClick={() => setShareTarget({ id: folder.id, name: folder.name, type: 'Folder' })}
+                      title="Share"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.25rem', color: '#6b7280' }}
+                    >
+                      <Share2 size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFolder(folder)}
+                      disabled={deletingId === folder.id}
+                      title="Move to trash"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.25rem', color: '#6b7280', opacity: deletingId === folder.id ? 0.5 : 1 }}
+                    >
+                      {deletingId === folder.id ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderX size={16} />}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -146,6 +163,13 @@ export function FileTable({ folders, files, onFolderOpen, onRefresh }: Props) {
                 <td style={{ ...tdStyle, color: '#6b7280' }}>{formatDate(file.uploadedAt)}</td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.25rem' }}>
+                    <button
+                      onClick={() => setShareTarget({ id: file.id, name: file.filename, type: 'File' })}
+                      title="Share"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.25rem', color: '#6b7280' }}
+                    >
+                      <Share2 size={15} />
+                    </button>
                     <button
                       onClick={() => setVersionsFile(file)}
                       title="Version history"
@@ -182,6 +206,15 @@ export function FileTable({ folders, files, onFolderOpen, onRefresh }: Props) {
           file={versionsFile}
           onClose={() => setVersionsFile(null)}
           onChanged={onRefresh}
+        />
+      )}
+
+      {shareTarget && (
+        <ShareModal
+          resourceId={shareTarget.id}
+          resourceType={shareTarget.type}
+          resourceName={shareTarget.name}
+          onClose={() => setShareTarget(null)}
         />
       )}
     </>

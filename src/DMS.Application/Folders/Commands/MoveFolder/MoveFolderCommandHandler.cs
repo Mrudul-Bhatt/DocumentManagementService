@@ -1,12 +1,15 @@
 using DMS.Application.Common;
+using DMS.Domain.Enums;
 using DMS.Domain.Errors;
 using DMS.Domain.Repositories;
+using DMS.Domain.Services;
 using MediatR;
 
 namespace DMS.Application.Folders.Commands.MoveFolder;
 
 internal sealed class MoveFolderCommandHandler(
-    IFolderRepository folderRepository)
+    IFolderRepository folderRepository,
+    IPermissionService permissionService)
     : IRequestHandler<MoveFolderCommand, Result>
 {
     private const int MaxFolderDepth = 20;
@@ -15,12 +18,15 @@ internal sealed class MoveFolderCommandHandler(
     {
         var folder = await folderRepository.GetByIdAsync(command.FolderId, ct);
 
-        if (folder is null || !folder.BelongsTo(command.UserId))
+        if (folder is null)
             return Result.Failure(DomainErrors.Folder.NotFound);
+
+        if (!folder.BelongsTo(command.UserId) &&
+            !await permissionService.CanWriteAsync(command.UserId, folder.Id, ShareResourceType.Folder, ct))
+            return Result.Failure(DomainErrors.Folder.Forbidden);
 
         if (command.TargetParentFolderId.HasValue)
         {
-            // Prevent moving a folder into itself or one of its own descendants
             var descendantIds = await folderRepository.GetDescendantIdsAsync(command.FolderId, ct);
             if (command.TargetParentFolderId.Value == command.FolderId ||
                 descendantIds.Contains(command.TargetParentFolderId.Value))
@@ -28,20 +34,25 @@ internal sealed class MoveFolderCommandHandler(
 
             var target = await folderRepository.GetByIdAsync(command.TargetParentFolderId.Value, ct);
 
-            if (target is null || !target.BelongsTo(command.UserId))
+            if (target is null)
                 return Result.Failure(DomainErrors.Folder.NotFound);
+
+            if (!target.BelongsTo(command.UserId) &&
+                !await permissionService.CanWriteAsync(command.UserId, target.Id, ShareResourceType.Folder, ct))
+                return Result.Failure(DomainErrors.Folder.Forbidden);
 
             var targetDepth = await folderRepository.GetDepthAsync(command.TargetParentFolderId.Value, ct);
             if (targetDepth + 1 >= MaxFolderDepth)
                 return Result.Failure(DomainErrors.Folder.MaxDepthExceeded);
 
-            var siblings = await folderRepository.GetChildrenAsync(command.TargetParentFolderId.Value, command.UserId, ct);
+            var ownerId  = target.OwnerId;
+            var siblings = await folderRepository.GetChildrenAsync(command.TargetParentFolderId.Value, ownerId, ct);
             if (siblings.Any(f => f.Name.Equals(folder.Name, StringComparison.OrdinalIgnoreCase)))
                 return Result.Failure(DomainErrors.Folder.NameConflict);
         }
         else
         {
-            var roots = await folderRepository.GetRootFoldersAsync(command.UserId, ct);
+            var roots = await folderRepository.GetRootFoldersAsync(folder.OwnerId, ct);
             if (roots.Any(f => f.Id != folder.Id && f.Name.Equals(folder.Name, StringComparison.OrdinalIgnoreCase)))
                 return Result.Failure(DomainErrors.Folder.NameConflict);
         }

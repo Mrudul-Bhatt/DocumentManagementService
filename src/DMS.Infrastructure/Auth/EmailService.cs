@@ -45,4 +45,13 @@ internal sealed class EmailService(ILogger<EmailService> logger) : IEmailService
 
         return Task.CompletedTask;
     }
+
+    public Task SendShareInvitationAsync(string toEmail, string sharedByEmail, string resourceName, string role, CancellationToken ct = default)
+    {
+        logger.LogInformation(
+            "[EMAIL STUB] Share invitation to {ToEmail} from {SharedByEmail} — resource: {ResourceName}, role: {Role}",
+            toEmail, sharedByEmail, resourceName, role);
+
+        return Task.CompletedTask;
+    }
 }

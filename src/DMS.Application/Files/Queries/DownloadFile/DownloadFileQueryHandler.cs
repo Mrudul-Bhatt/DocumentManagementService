@@ -1,5 +1,6 @@
 using DMS.Application.Common;
 using DMS.Application.DTOs;
+using DMS.Domain.Enums;
 using DMS.Domain.Errors;
 using DMS.Domain.Repositories;
 using DMS.Domain.Services;
@@ -9,7 +10,8 @@ namespace DMS.Application.Files.Queries.DownloadFile;
 
 internal sealed class DownloadFileQueryHandler(
     IFileStorageService storageService,
-    IFileMetadataRepository repository)
+    IFileMetadataRepository repository,
+    IPermissionService permissionService)
     : IRequestHandler<DownloadFileQuery, Result<FileDownloadResult>>
 {
     public async Task<Result<FileDownloadResult>> Handle(DownloadFileQuery query, CancellationToken ct)
@@ -19,7 +21,8 @@ internal sealed class DownloadFileQueryHandler(
         if (metadata is null)
             return Result.Failure<FileDownloadResult>(DomainErrors.File.NotFound);
 
-        if (!metadata.BelongsTo(query.UserId))
+        if (!metadata.BelongsTo(query.UserId) &&
+            !await permissionService.CanReadAsync(Guid.Parse(query.UserId), metadata.Id, ShareResourceType.File, ct))
             return Result.Failure<FileDownloadResult>(DomainErrors.File.Forbidden);
 
         var stream = await storageService.ReadAsync(metadata.StoragePath, ct);

@@ -1,6 +1,7 @@
 using DMS.Application.Common;
 using DMS.Application.DTOs;
 using DMS.Domain.Entities;
+using DMS.Domain.Enums;
 using DMS.Domain.Errors;
 using DMS.Domain.Repositories;
 using DMS.Domain.Services;
@@ -14,6 +15,7 @@ internal sealed class UploadFileCommandHandler(
     IFileMetadataRepository fileRepository,
     IFolderRepository folderRepository,
     IFileVersionRepository versionRepository,
+    IPermissionService permissionService,
     ILogger<UploadFileCommandHandler> logger)
     : IRequestHandler<UploadFileCommand, Result<FileMetadataDto>>
 {
@@ -31,8 +33,13 @@ internal sealed class UploadFileCommandHandler(
         if (command.FolderId.HasValue)
         {
             var folder = await folderRepository.GetByIdAsync(command.FolderId.Value, ct);
-            if (folder is null || !folder.BelongsTo(Guid.Parse(command.UserId)))
+            if (folder is null)
                 return Result.Failure<FileMetadataDto>(DomainErrors.Folder.NotFound);
+
+            var userId = Guid.Parse(command.UserId);
+            if (!folder.BelongsTo(userId) &&
+                !await permissionService.CanWriteAsync(userId, folder.Id, ShareResourceType.Folder, ct))
+                return Result.Failure<FileMetadataDto>(DomainErrors.Folder.Forbidden);
         }
 
         // Check whether a file with the same name already exists in the target folder

@@ -11,6 +11,7 @@ using DMS.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DMS.Infrastructure;
 
@@ -60,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IShareRepository, ShareRepository>();
+        services.AddScoped<IPublicLinkRepository, PublicLinkRepository>();
 
         // ── Storage — Scoped ─────────────────────────────────────────────────────────────
         // LocalFileStorageService injects IConfiguration, which is Singleton. Scoped is fine
@@ -76,6 +79,18 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
         services.AddScoped<IEmailService, EmailService>();
+
+        // ── Permission service — Scoped ───────────────────────────────────────────────────
+        // PermissionService injects AppDbContext (Scoped) and IDistributedCache (Singleton).
+        // Scoped lifetime is correct — it must not outlive the DbContext it holds.
+        services.AddScoped<IPermissionService, PermissionService>();
+
+        // ── Redis distributed cache ───────────────────────────────────────────────────────
+        // Used by PermissionService to cache resolved roles (60 s TTL).
+        // Falls back to DB on RedisConnectionException so a Redis outage does not down the service.
+        // Connection string from "Redis:ConnectionString" in appsettings; falls back to localhost.
+        var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
+        services.AddStackExchangeRedisCache(opts => opts.Configuration = redisConnectionString);
 
         // ── Application services — Scoped ────────────────────────────────────────────────
         // TrashPurgeService injects AppDbContext (Scoped), so it must also be Scoped.

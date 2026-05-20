@@ -62,6 +62,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     /// <summary>Per-file version history. One row per upload of the same filename in the same folder.</summary>
     public DbSet<FileVersion> FileVersions => Set<FileVersion>();
 
+    /// <summary>Access control list: one row per (resource, grantee, role) triple.</summary>
+    public DbSet<Share> Shares => Set<Share>();
+
+    /// <summary>Token-based public links for unauthenticated access to files and folders.</summary>
+    public DbSet<PublicLink> PublicLinks => Set<PublicLink>();
+
     /// <summary>
     /// Applies all IEntityTypeConfiguration<T> implementations discovered via reflection.
     ///
